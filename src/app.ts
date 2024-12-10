@@ -1,42 +1,49 @@
-import express from "express";
+import express, { Express } from "express";
+import { Todo } from "./models/todo.ts";
+import { TodoService } from "./services/TodoService.ts";
 
-export function createApp() {
+export interface RepoInterface {
+  addTodo(todo: Omit<Todo, "id">): Promise<Todo>;
+  getTodo(id: number): Promise<Todo | undefined>;
+  deleteTodo(id: number): Promise<void>;
+  listTodos(): Promise<Todo[]>;
+  empty(): Promise<void>;
+}
+
+export interface TypedRequestBody<T> extends Express.Request {
+  body: T;
+}
+
+export function createApp(repo: RepoInterface, service: TodoService) {
   const app = express();
 
   app.use(express.json());
 
-  let id = 1;
-  const todos = [];
+  app.post(
+    "/todos",
+    async (req: TypedRequestBody<{ description: string }>, res) =>
+      service.addTodo(req.body, {
+        success: (todo) => res.json(todo),
+      }),
+  );
 
-  app.post("/todos", (req, res) => {
-    const newTodo = { id, description: req.body.description };
-    id += 1;
-    todos.push(newTodo);
-    res.json(newTodo);
-  });
+  app.get<{ id: number }>("/todos/:id", async (req, res) =>
+    service.getTodo(req.params.id, {
+      success: () => res.json(),
+      notFound: () => res.status(404).json(),
+    }),
+  );
 
-  app.get("/todos/:id", (req, res) => {
-    const todo = todos.find((t) => t.id == req.params.id);
-    if (!todo) {
-      res.status(404).json();
-    } else {
-      res.json(todo);
-    }
-  });
+  app.delete<{ id: number }>("/todos/:id", async (req, res) =>
+    service.deleteTodo(req.params.id, {
+      success: () => res.json(),
+      notFound: () => res.status(404).json(),
+    }),
+  );
 
-  app.delete("/todos/:id", (req, res) => {
-    const index = todos.findIndex((t) => t.id == req.params.id);
-    if (index == -1) {
-      res.status(404).json();
-      return;
-    }
-    todos.splice(index, 1);
-    res.json();
-  });
-
-  app.get("/todos", (req, res) => {
-    res.json(todos);
-  });
+  app.get("/todos", async (req, res) =>
+    service.listTodos({ success: (todos) => res.json(todos) }),
+  );
 
   return app;
 }

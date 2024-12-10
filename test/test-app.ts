@@ -3,6 +3,8 @@ import { Todo } from "../src/models/todo.ts";
 import request from "supertest";
 import { Express } from "express";
 import * as chai from "chai";
+import { FakeTodoRepo } from "./repo.spec.ts";
+import { TodoService } from "../src/services/TodoService.ts";
 
 export const Status = {
   OK: "Ok",
@@ -100,5 +102,6 @@ export function createTodo(id, description) {
 }
 
 export function createTestApp() {
-  return new TestAppRunner(createApp());
+  const repo = new FakeTodoRepo();
+  return new TestAppRunner(createApp(repo, new TodoService(repo)));
 }
